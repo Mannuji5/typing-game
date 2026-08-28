@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalist P2P Typing Game</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Load PeerJS for WebRTC signaling -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <div class="game-wrapper">
+        <header>
+            <div id="connection-panel">
+                <p>Your ID: <span id="my-id">Generating...</span></p>
+                <input type="text" id="opponent-id-input" placeholder="Enter Opponent ID">
+                <button id="connect-btn">Connect</button>
+            </div>
+            <div id="status-display">Status: Disconnected</div>
+        </header>
+
+        <main class="typing-container">
+            <div class="stats">
+                <div>You: <span id="local-wpm">0</span> WPM</div>
+                <div>Opponent: <span id="remote-wpm">0</span> WPM</div>
+            </div>
+            <!-- Visually hidden input for robust mobile/IME capture -->
+            <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" spellcheck="false">
+            <div id="text-display" class="text-display">
+                <!-- Spans will be injected here by JS -->
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

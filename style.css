@@ -1,0 +1,102 @@
+:root {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --correct-color: #4caf50;
+    --incorrect-color: #f44336;
+    --incorrect-bg: #4a1915;
+    --active-color: #ffffff;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.game-wrapper {
+    width: 100%;
+    max-width: 900px;
+    padding: 2rem;
+    /* Establish the container query context */
+    container-type: inline-size;
+    container-name: game-board;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid #333;
+    padding-bottom: 1rem;
+}
+
+#connection-panel input, #connection-panel button {
+    background: #222;
+    color: var(--text-color);
+    border: 1px solid #444;
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    font-weight: bold;
+}
+
+.text-display {
+    font-family: 'Courier New', Courier, monospace;
+    /* Fluid typography relative to container width */
+    font-size: clamp(1.2rem, 3cqi, 2.5rem);
+    line-height: 1.5;
+    position: relative;
+    cursor: text;
+    /* Prioritize speed over geometric rendering precision */
+    text-rendering: optimizeSpeed;
+}
+
+/* Character states */
+.text-display span {
+    color: #666;
+    transition: color 0.1s;
+}
+
+.text-display span.correct {
+    color: var(--correct-color);
+}
+
+.text-display span.incorrect {
+    color: var(--incorrect-color);
+    background-color: var(--incorrect-bg);
+    text-decoration: underline;
+}
+
+.text-display span.active {
+    color: var(--active-color);
+    border-left: 2px solid var(--active-color);
+    animation: blink 1s infinite;
+}
+
+#hidden-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+@keyframes blink {
+    50% { border-color: transparent; }
+}
+
+/* Container Query Example: Stack stats on small containers */
+@container game-board (max-width: 500px) {
+    .stats {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
