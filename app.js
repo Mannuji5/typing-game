@@ -149,10 +149,25 @@ rematchBtn.addEventListener('click', () => {
 });
 
 // --- PeerJS WebRTC Networking ---
-const peer = new Peer({ debug: 2 });
+
+// Generate a random 3-character ID (Numbers and Uppercase Letters)
+function generateShortId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 3; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+const myShortId = generateShortId();
+
+// Pass the custom 3-character ID into Peer
+const peer = new Peer(myShortId, { debug: 2 });
 let connection;
 
 peer.on('open', (id) => {
+    // This will now display your 3-character ID
     document.getElementById('my-id').innerText = id;
     document.getElementById('status-display').innerText = 'Status: Waiting for opponent...';
 });
@@ -163,7 +178,8 @@ peer.on('connection', (conn) => {
 });
 
 document.getElementById('connect-btn').addEventListener('click', () => {
-    const opponentId = document.getElementById('opponent-id-input').value;
+    // Ensure we send uppercase to match the generated IDs
+    const opponentId = document.getElementById('opponent-id-input').value.toUpperCase();
     connection = peer.connect(opponentId, { reliable: true });
     setupConnection(connection);
 });
