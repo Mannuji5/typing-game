@@ -94,7 +94,19 @@ function calculateAndSendWPM(totalKeystrokes) {
 }
 
 // --- PeerJS WebRTC Networking ---
-const peer = new Peer({ debug: 2 });
+const peer = new Peer({
+    debug: 2,
+    config: {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' }, 
+            { 
+                urls: 'turn:your-turn-server-url:80', 
+                username: 'your-username', 
+                credential: 'your-password' 
+            }
+        ]
+    }
+});
 let connection;
 
 peer.on('open', (id) => {
