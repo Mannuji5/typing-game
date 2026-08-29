@@ -14,7 +14,6 @@ function playClickSound(isError = false) {
     osc.connect(gainNode);
     gainNode.connect(audioCtx.destination);
     
-    // Smooth attack and decay to prevent audio pops
     gainNode.gain.exponentialRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
     
@@ -28,11 +27,18 @@ const textDisplay = document.getElementById('text-display');
 const hiddenInput = document.getElementById('hidden-input');
 const localWpmDisplay = document.getElementById('local-wpm');
 const remoteWpmDisplay = document.getElementById('remote-wpm');
+const localAccDisplay = document.getElementById('local-accuracy');
+const remoteAccDisplay = document.getElementById('remote-accuracy');
+
+const winScreen = document.getElementById('win-screen');
+const winTitle = document.getElementById('win-title');
+const winMessage = document.getElementById('win-message');
+const rematchBtn = document.getElementById('rematch-btn');
 
 let startTime = null;
 let errors = 0;
+let isFinished = false;
 
-// Initialize DOM spans
 function initGame() {
     textDisplay.innerHTML = '';
     targetText.split('').forEach((char, index) => {
@@ -41,19 +47,30 @@ function initGame() {
         if (index === 0) span.classList.add('active');
         textDisplay.appendChild(span);
     });
+    
+    hiddenInput.value = '';
+    hiddenInput.disabled = false;
+    startTime = null;
+    errors = 0;
+    isFinished = false;
+    
+    localWpmDisplay.innerText = '0';
+    localAccDisplay.innerText = '100';
+    winScreen.classList.add('hidden');
 }
 
-// Ensure clicking the text area focuses our hidden input
-textDisplay.addEventListener('click', () => hiddenInput.focus());
+textDisplay.addEventListener('click', () => {
+    if (!isFinished) hiddenInput.focus();
+});
 
 hiddenInput.addEventListener('input', (e) => {
+    if (isFinished) return;
     if (!startTime) startTime = Date.now();
     
     const typedText = e.target.value;
     const spans = textDisplay.querySelectorAll('span');
     let currentErrors = 0;
 
-    // Use requestAnimationFrame for performant DOM updates
     requestAnimationFrame(() => {
         spans.forEach((span, index) => {
             span.className = ''; 
@@ -70,43 +87,69 @@ hiddenInput.addEventListener('input', (e) => {
         });
     });
 
-    // Play sound based on the last keystroke
     const isLastCharWrong = typedText.length > 0 && typedText[typedText.length - 1] !== targetText[typedText.length - 1];
     playClickSound(isLastCharWrong);
     
     errors = currentErrors;
-    calculateAndSendWPM(typedText.length);
+    calculateAndSendProgress(typedText.length);
+
+    // Check for Win Condition
+    if (typedText === targetText) {
+        isFinished = true;
+        hiddenInput.disabled = true;
+        const finalWPM = localWpmDisplay.innerText;
+        const finalAcc = localAccDisplay.innerText;
+        
+        triggerWin('You', finalWPM, finalAcc);
+        
+        // Notify opponent that the game is over
+        if (connection && connection.open) {
+            connection.send({ type: 'GAME_OVER', wpm: finalWPM, accuracy: finalAcc });
+        }
+    }
 });
 
-function calculateAndSendWPM(totalKeystrokes) {
-    if (!startTime) return;
+function calculateAndSendProgress(totalKeystrokes) {
+    if (!startTime || totalKeystrokes === 0) return;
+    
     const minutesElapsed = (Date.now() - startTime) / 60000;
-    // Standard Net WPM formula
     const grossWPM = (totalKeystrokes / 5) / minutesElapsed;
+    
     const netWPM = Math.max(0, Math.round(grossWPM - (errors / minutesElapsed)));
+    const accuracy = Math.max(0, Math.round(((totalKeystrokes - errors) / totalKeystrokes) * 100));
     
     localWpmDisplay.innerText = netWPM;
+    localAccDisplay.innerText = accuracy;
 
-    // Send payload over WebRTC
     if (connection && connection.open) {
-        connection.send({ type: 'PROGRESS', wpm: netWPM });
+        connection.send({ type: 'PROGRESS', wpm: netWPM, accuracy: accuracy });
     }
 }
 
-// --- PeerJS WebRTC Networking ---
-const peer = new Peer({
-    debug: 2,
-    config: {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' }, 
-            { 
-                urls: 'turn:your-turn-server-url:80', 
-                username: 'your-username', 
-                credential: 'your-password' 
-            }
-        ]
+function triggerWin(winner, wpm, accuracy) {
+    winScreen.classList.remove('hidden');
+    if (winner === 'You') {
+        winTitle.innerText = "You Won!";
+        winTitle.style.color = "var(--correct-color)";
+    } else {
+        winTitle.innerText = "Opponent Won!";
+        winTitle.style.color = "var(--incorrect-color)";
+        isFinished = true;
+        hiddenInput.disabled = true;
+    }
+    winMessage.innerText = `Speed: ${wpm} WPM | Accuracy: ${accuracy}%`;
+}
+
+rematchBtn.addEventListener('click', () => {
+    initGame();
+    hiddenInput.focus();
+    if (connection && connection.open) {
+        connection.send({ type: 'REMATCH' });
     }
 });
+
+// --- PeerJS WebRTC Networking ---
+const peer = new Peer({ debug: 2 });
 let connection;
 
 peer.on('open', (id) => {
@@ -114,13 +157,11 @@ peer.on('open', (id) => {
     document.getElementById('status-display').innerText = 'Status: Waiting for opponent...';
 });
 
-// Handle incoming connection
 peer.on('connection', (conn) => {
     connection = conn;
     setupConnection(connection);
 });
 
-// Handle outgoing connection
 document.getElementById('connect-btn').addEventListener('click', () => {
     const opponentId = document.getElementById('opponent-id-input').value;
     connection = peer.connect(opponentId, { reliable: true });
@@ -130,25 +171,25 @@ document.getElementById('connect-btn').addEventListener('click', () => {
 function setupConnection(conn) {
     conn.on('open', () => {
         document.getElementById('status-display').innerText = 'Status: Connected! Start typing.';
-        hiddenInput.focus();
-        hiddenInput.value = ''; // Reset input
-        startTime = null;
         initGame();
+        hiddenInput.focus();
     });
 
     conn.on('data', (data) => {
         if (data.type === 'PROGRESS') {
-            // Render opponent's WPM
             requestAnimationFrame(() => {
                 remoteWpmDisplay.innerText = data.wpm;
+                remoteAccDisplay.innerText = data.accuracy;
             });
+        } else if (data.type === 'GAME_OVER') {
+            triggerWin('Opponent', data.wpm, data.accuracy);
+        } else if (data.type === 'REMATCH') {
+            initGame();
         }
     });
 
     conn.on('close', () => {
         document.getElementById('status-display').innerText = 'Status: Opponent Disconnected';
-        // Basic reconnect implementation
-        peer.reconnect(); 
     });
 }
 
